@@ -195,11 +195,8 @@
     setStatus("connecting", "Connecting to agent...");
     errorBox.style.display = "none";
     try {
-      await vapi.start({
-        assistantId: ASSISTANT_ID,
-        assistantOverrides: {
-          variableValues: { first_name: firstName, company, city }
-        }
+      await vapi.start(ASSISTANT_ID, {
+        variableValues: { first_name: firstName, company, city }
       });
     } catch(e) {
       showError("Failed to start call: " + (e?.message || e));
