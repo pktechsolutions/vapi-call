@@ -82,6 +82,7 @@
   </style>
 </head>
 <body>
+
 <div class="card">
   <div class="orb-wrap">
     <div class="orb" id="orb"><span class="orb-icon">🤖</span></div>
@@ -98,9 +99,26 @@
   <div id="error-box"></div>
 </div>
 
-<script type="module">
+<!-- Official Vapi HTML SDK — the only CDN guaranteed to work in browsers -->
+<script>
+  (function (d, t) {
+    var g = document.createElement(t), s = d.getElementsByTagName(t)[0];
+    g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+    g.defer = true;
+    g.async = true;
+    s.parentNode.insertBefore(g, s);
+    g.onload = function () { startVapi(); };
+    g.onerror = function () {
+      document.getElementById("error-box").style.display = "block";
+      document.getElementById("error-box").textContent = "Failed to load Vapi SDK script. Check your internet connection.";
+      setStatus("error", "SDK load failed");
+    };
+  })(document, "script");
+</script>
+
+<script>
   // ── CONFIG — replace with your real keys ──────────────────
-  const VAPI_PUBLIC_KEY = "4102c13f-4968-4080-8af4-0ecbce4c67b8";
+  const VAPI_PUBLIC_KEY = "YOUR_VAPI_PUBLIC_KEY_HERE";
   const ASSISTANT_ID    = "95bdc569-837b-472c-bad2-4b81f239cf75";
   // ──────────────────────────────────────────────────────────
 
@@ -144,57 +162,61 @@
   }
   function stopTimer() { clearInterval(timerInterval); }
 
-  // ── Import Vapi as ES module (works in all modern browsers) ──
-  let Vapi;
-  try {
-    const mod = await import("https://cdn.jsdelivr.net/npm/@vapi-ai/web@2.1.1/dist/vapi.mjs");
-    Vapi = mod.default;
-  } catch(e) {
-    showError("Could not load Vapi SDK. Check your internet connection.\n" + e.message);
-    throw e;
-  }
+  let vapiInstance = null;
 
-  setStatus("connecting", "Connecting to agent...");
+  function startVapi() {
+    setStatus("connecting", "Connecting to agent...");
 
-  let vapi;
-  try {
-    vapi = new Vapi(VAPI_PUBLIC_KEY);
-  } catch(e) {
-    showError("Failed to initialize Vapi: " + e.message);
-    throw e;
-  }
+    try {
+      // vapiSDK is exposed globally by the official HTML script tag
+      vapiInstance = window.vapiSDK.run({
+        apiKey: VAPI_PUBLIC_KEY,
+        assistant: ASSISTANT_ID,
+        assistantOverrides: {
+          variableValues: {
+            first_name: firstName,
+            company:    company,
+            city:       city
+          }
+        },
+        config: {
+          // Hide the default Vapi button — we have our own UI
+          position: "bottom-right",
+          offset: "-9999px"
+        }
+      });
 
-  vapi.on("call-start", () => {
-    setStatus("active", "Call in progress");
-    orb.classList.add("active");
-    endBtn.style.display = "block";
-    startTimer();
-  });
-
-  vapi.on("call-end", () => {
-    setStatus("", "Call ended");
-    orb.classList.remove("active");
-    endBtn.style.display = "none";
-    stopTimer();
-  });
-
-  vapi.on("error", (e) => {
-    showError("Vapi error: " + (e?.message || JSON.stringify(e)));
-    stopTimer();
-  });
-
-  window.endCall = () => vapi.stop();
-
-  try {
-    await vapi.start({
-      assistantId: ASSISTANT_ID,
-      assistantOverrides: {
-        variableValues: { first_name: firstName, company, city }
+      if (!vapiInstance) {
+        showError("vapiSDK.run() returned nothing. Check your Public Key and Assistant ID.");
+        return;
       }
-    });
-    setStatus("connecting", "Ringing...");
-  } catch(e) {
-    showError("Failed to start call: " + (e?.message || e));
+
+      vapiInstance.on("call-start", () => {
+        setStatus("active", "Call in progress");
+        orb.classList.add("active");
+        endBtn.style.display = "block";
+        startTimer();
+      });
+
+      vapiInstance.on("call-end", () => {
+        setStatus("", "Call ended");
+        orb.classList.remove("active");
+        endBtn.style.display = "none";
+        stopTimer();
+      });
+
+      vapiInstance.on("error", (e) => {
+        showError("Vapi error: " + (e?.message || JSON.stringify(e)));
+        stopTimer();
+      });
+
+    } catch(e) {
+      showError("Exception starting Vapi: " + e.message);
+    }
+  }
+
+  function endCall() {
+    if (vapiInstance) vapiInstance.stop();
   }
 </script>
 </body>
