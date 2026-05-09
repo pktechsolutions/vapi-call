@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vapi Call</title>
+  <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #1e1e2e;
+      --accent: #7c6aff;
+      --accent2: #ff6a8a;
+      --text: #e8e8f0;
+      --muted: #5a5a7a;
+      --success: #4affa0;
+      --error: #ff6a8a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(124,106,255,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 70%, rgba(255,106,138,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 52px;
+      width: min(480px, 92vw);
+      text-align: center;
+      box-shadow: 0 0 80px rgba(124,106,255,0.07), 0 32px 64px rgba(0,0,0,0.5);
+    }
+
+    /* Orb / avatar */
+    .orb-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+
+    .orb {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--accent), var(--accent2), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: spin-slow 8s linear infinite;
+      position: relative;
+    }
+
+    .orb::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: var(--surface);
+    }
+
+    .orb-icon {
+      position: relative;
+      z-index: 1;
+      font-size: 36px;
+    }
+
+    @keyframes spin-slow {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Pulse ring during active call */
+    .orb.active {
+      animation: spin-slow 2s linear infinite;
+      box-shadow: 0 0 0 0 rgba(124,106,255,0.5);
+    }
+
+    .orb.active::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 2px solid rgba(124,106,255,0.4);
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%   { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    .label {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .name-highlight {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .meta {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 36px;
+      line-height: 1.8;
+    }
+
+    /* Status */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 28px;
+      min-height: 24px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s;
+    }
+
+    .dot.connecting { background: var(--accent); animation: blink 0.8s infinite alternate; }
+    .dot.active     { background: var(--success); }
+    .dot.error      { background: var(--error); }
+
+    @keyframes blink { to { opacity: 0.3; } }
+
+    #status-text {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--muted);
+      transition: color 0.4s;
+    }
+
+    #status-text.active { color: var(--success); }
+    #status-text.error  { color: var(--error); }
+
+    /* End call button */
+    #end-btn {
+      display: none;
+      width: 100%;
+      padding: 14px;
+      border: 1px solid var(--error);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--error);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      margin-top: 4px;
+    }
+
+    #end-btn:hover {
+      background: var(--error);
+      color: #fff;
+    }
+
+    /* Error box */
+    #error-box {
+      display: none;
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: rgba(255,106,138,0.08);
+      border: 1px solid rgba(255,106,138,0.2);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--error);
+      text-align: left;
+      line-height: 1.6;
+    }
+
+    /* Timer */
+    #timer {
+      font-family: 'DM Mono', monospace;
+      font-size: 32px;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 4px;
+      margin-bottom: 24px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="orb-wrap">
+    <div class="orb" id="orb">
+      <span class="orb-icon">🤖</span>
+    </div>
+  </div>
+
+  <div class="label">Vapi AI Agent</div>
+  <h1>Calling <span class="name-highlight" id="display-name">—</span></h1>
+  <div class="meta" id="display-meta">Loading contact info...</div>
+
+  <div id="timer">00:00</div>
+
+  <div class="status-row">
+    <div class="dot" id="dot"></div>
+    <span id="status-text">Initializing...</span>
+  </div>
+
+  <button id="end-btn" onclick="endCall()">⏹ End Call</button>
+  <div id="error-box"></div>
+</div>
+
+<script>
+  // ── CONFIG ─────────────────────────────────────────────────
+  // Replace with your actual Vapi PUBLIC key
+  const VAPI_PUBLIC_KEY = "4102c13f-4968-4080-8af4-0ecbce4c67b8";
+  const ASSISTANT_ID    = "95bdc569-837b-472c-bad2-4b81f239cf75";
+  // ──────────────────────────────────────────────────────────
+
+  // Read URL params
+  const params    = new URLSearchParams(window.location.search);
+  const firstName = params.get("first_name") || "Friend";
+  const company   = params.get("company")    || "";
+  const city      = params.get("city")       || "";
+
+  // Update UI with contact info
+  document.getElementById("display-name").textContent = firstName;
+  document.getElementById("display-meta").innerHTML =
+    [company, city].filter(Boolean).join(" &bull; ") || "No additional info";
+
+  // Status helpers
+  const dot        = document.getElementById("dot");
+  const statusText = document.getElementById("status-text");
+  const endBtn     = document.getElementById("end-btn");
+  const errorBox   = document.getElementById("error-box");
+  const orb        = document.getElementById("orb");
+  const timer      = document.getElementById("timer");
+
+  function setStatus(state, msg) {
+    dot.className        = "dot " + state;
+    statusText.className = state;
+    statusText.textContent = msg;
+  }
+
+  // Timer
+  let timerInterval, seconds = 0;
+  function startTimer() {
+    timer.style.display = "block";
+    timerInterval = setInterval(() => {
+      seconds++;
+      const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+      const s = String(seconds % 60).padStart(2, "0");
+      timer.textContent = `${m}:${s}`;
+    }, 1000);
+  }
+  function stopTimer() {
+    clearInterval(timerInterval);
+  }
+
+  // Init Vapi
+  setStatus("connecting", "Connecting to Vapi...");
+
+  const vapi = new Vapi(VAPI_PUBLIC_KEY);
+
+  vapi.on("call-start", () => {
+    setStatus("active", "Call in progress");
+    orb.classList.add("active");
+    endBtn.style.display = "block";
+    startTimer();
+  });
+
+  vapi.on("call-end", () => {
+    setStatus("", "Call ended");
+    orb.classList.remove("active");
+    endBtn.style.display = "none";
+    stopTimer();
+  });
+
+  vapi.on("error", (e) => {
+    setStatus("error", "Error occurred");
+    errorBox.style.display = "block";
+    errorBox.textContent   = "Error: " + (e?.message || JSON.stringify(e));
+    stopTimer();
+  });
+
+  // Start call automatically
+  vapi.start({
+    assistantId: ASSISTANT_ID,
+    assistantOverrides: {
+      variableValues: {
+        first_name: firstName,
+        company:    company,
+        city:       city
+      }
+    }
+  }).then(() => {
+    setStatus("connecting", "Ringing...");
+  }).catch((err) => {
+    setStatus("error", "Failed to start call");
+    errorBox.style.display = "block";
+    errorBox.textContent   = "Failed: " + (err?.message || err);
+  });
+
+  function endCall() {
+    vapi.stop();
+  }
+</script>
+</body>
+</html>
