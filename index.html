@@ -6,19 +6,15 @@
   <title>Vapi Call</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap');
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --bg: #0a0a0f; --surface: #13131a; --border: #1e1e2e;
       --accent: #7c6aff; --accent2: #ff6a8a; --text: #e8e8f0;
       --muted: #5a5a7a; --success: #4affa0; --error: #ff6a8a;
     }
-
     body {
-      background: var(--bg); color: var(--text);
-      font-family: 'Syne', sans-serif; min-height: 100vh;
-      display: flex; align-items: center; justify-content: center; overflow: hidden;
+      background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
     body::before {
       content: ''; position: fixed; inset: 0;
@@ -66,11 +62,19 @@
     #status-text.active { color: var(--success); }
     #status-text.error { color: var(--error); }
     #timer { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 300; color: var(--text); letter-spacing: 4px; margin-bottom: 24px; display: none; }
+    #start-btn {
+      width: 100%; padding: 16px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+      letter-spacing: 1px; cursor: pointer; transition: opacity 0.2s; margin-bottom: 12px;
+    }
+    #start-btn:hover { opacity: 0.85; }
+    #start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     #end-btn {
       display: none; width: 100%; padding: 14px; border: 1px solid var(--error);
       border-radius: 12px; background: transparent; color: var(--error);
       font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
-      letter-spacing: 1px; cursor: pointer; transition: background 0.2s, color 0.2s; margin-top: 4px;
+      letter-spacing: 1px; cursor: pointer; transition: background 0.2s, color 0.2s;
     }
     #end-btn:hover { background: var(--error); color: #fff; }
     #error-box {
@@ -79,10 +83,10 @@
       font-family: 'DM Mono', monospace; font-size: 12px; color: var(--error);
       text-align: left; line-height: 1.6; word-break: break-all;
     }
+    .note { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
   </style>
 </head>
 <body>
-
 <div class="card">
   <div class="orb-wrap">
     <div class="orb" id="orb"><span class="orb-icon">🤖</span></div>
@@ -93,35 +97,21 @@
   <div id="timer">00:00</div>
   <div class="status-row">
     <div class="dot" id="dot"></div>
-    <span id="status-text">Loading SDK...</span>
+    <span id="status-text">Ready</span>
   </div>
+  <button id="start-btn">🎙️ Start Call</button>
   <button id="end-btn" onclick="endCall()">⏹ End Call</button>
+  <div class="note">Allow microphone access when the browser asks.</div>
   <div id="error-box"></div>
 </div>
 
-<!-- Official Vapi HTML SDK — the only CDN guaranteed to work in browsers -->
-<script>
-  (function (d, t) {
-    var g = document.createElement(t), s = d.getElementsByTagName(t)[0];
-    g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
-    g.defer = true;
-    g.async = true;
-    s.parentNode.insertBefore(g, s);
-    g.onload = function () { startVapi(); };
-    g.onerror = function () {
-      document.getElementById("error-box").style.display = "block";
-      document.getElementById("error-box").textContent = "Failed to load Vapi SDK script. Check your internet connection.";
-      setStatus("error", "SDK load failed");
-    };
-  })(document, "script");
-</script>
-
-<script>
-  // ── CONFIG — replace with your real keys ──────────────────
+<script type="module">
+  // ── CONFIG ────────────────────────────────────────────────
   const VAPI_PUBLIC_KEY = "4102c13f-4968-4080-8af4-0ecbce4c67b8";
   const ASSISTANT_ID    = "95bdc569-837b-472c-bad2-4b81f239cf75";
-  // ──────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
 
+  // Read URL params passed by Make.com
   const params    = new URLSearchParams(window.location.search);
   const firstName = params.get("first_name") || "Friend";
   const company   = params.get("company")    || "";
@@ -131,17 +121,18 @@
   document.getElementById("display-meta").innerHTML =
     [company, city].filter(Boolean).join(" &bull; ") || "No additional info";
 
-  const dot        = document.getElementById("dot");
-  const statusText = document.getElementById("status-text");
-  const endBtn     = document.getElementById("end-btn");
-  const errorBox   = document.getElementById("error-box");
-  const orb        = document.getElementById("orb");
-  const timer      = document.getElementById("timer");
+  const dot       = document.getElementById("dot");
+  const statusTxt = document.getElementById("status-text");
+  const startBtn  = document.getElementById("start-btn");
+  const endBtn    = document.getElementById("end-btn");
+  const errorBox  = document.getElementById("error-box");
+  const orb       = document.getElementById("orb");
+  const timer     = document.getElementById("timer");
 
   function setStatus(state, msg) {
     dot.className = "dot " + state;
-    statusText.className = state;
-    statusText.textContent = msg;
+    statusTxt.className = state;
+    statusTxt.textContent = msg;
   }
 
   function showError(msg) {
@@ -152,6 +143,7 @@
 
   let timerInterval, seconds = 0;
   function startTimer() {
+    seconds = 0;
     timer.style.display = "block";
     timerInterval = setInterval(() => {
       seconds++;
@@ -162,62 +154,60 @@
   }
   function stopTimer() { clearInterval(timerInterval); }
 
-  let vapiInstance = null;
+  // Import Vapi Web SDK — the correct ES module build from esm.sh
+  // esm.sh converts any npm package to a proper browser ES module
+  let vapi;
+  try {
+    const { default: Vapi } = await import("https://esm.sh/@vapi-ai/web");
+    vapi = new Vapi(VAPI_PUBLIC_KEY);
+  } catch(e) {
+    showError("Failed to load Vapi SDK: " + e.message);
+    startBtn.disabled = true;
+    throw e;
+  }
 
-  function startVapi() {
+  vapi.on("call-start", () => {
+    setStatus("active", "Call in progress");
+    orb.classList.add("active");
+    startBtn.style.display = "none";
+    endBtn.style.display = "block";
+    startTimer();
+  });
+
+  vapi.on("call-end", () => {
+    setStatus("", "Call ended");
+    orb.classList.remove("active");
+    startBtn.style.display = "block";
+    startBtn.disabled = false;
+    endBtn.style.display = "none";
+    stopTimer();
+  });
+
+  vapi.on("error", (e) => {
+    showError("Vapi error: " + (e?.message || JSON.stringify(e)));
+    startBtn.disabled = false;
+    stopTimer();
+  });
+
+  // Start call when button is clicked (browser requires user gesture for mic)
+  startBtn.addEventListener("click", async () => {
+    startBtn.disabled = true;
     setStatus("connecting", "Connecting to agent...");
-
+    errorBox.style.display = "none";
     try {
-      // vapiSDK is exposed globally by the official HTML script tag
-      vapiInstance = window.vapiSDK.run({
-        apiKey: VAPI_PUBLIC_KEY,
-        assistant: ASSISTANT_ID,
+      await vapi.start({
+        assistantId: ASSISTANT_ID,
         assistantOverrides: {
-          variableValues: {
-            first_name: firstName,
-            company:    company,
-            city:       city
-          }
-        },
-        config: {
-          // Hide the default Vapi button — we have our own UI
-          position: "bottom-right",
-          offset: "-9999px"
+          variableValues: { first_name: firstName, company, city }
         }
       });
-
-      if (!vapiInstance) {
-        showError("vapiSDK.run() returned nothing. Check your Public Key and Assistant ID.");
-        return;
-      }
-
-      vapiInstance.on("call-start", () => {
-        setStatus("active", "Call in progress");
-        orb.classList.add("active");
-        endBtn.style.display = "block";
-        startTimer();
-      });
-
-      vapiInstance.on("call-end", () => {
-        setStatus("", "Call ended");
-        orb.classList.remove("active");
-        endBtn.style.display = "none";
-        stopTimer();
-      });
-
-      vapiInstance.on("error", (e) => {
-        showError("Vapi error: " + (e?.message || JSON.stringify(e)));
-        stopTimer();
-      });
-
     } catch(e) {
-      showError("Exception starting Vapi: " + e.message);
+      showError("Failed to start call: " + (e?.message || e));
+      startBtn.disabled = false;
     }
-  }
+  });
 
-  function endCall() {
-    if (vapiInstance) vapiInstance.stop();
-  }
+  window.endCall = () => vapi.stop();
 </script>
 </body>
 </html>
